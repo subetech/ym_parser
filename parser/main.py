@@ -53,6 +53,7 @@ class Payment(object):
 
     def get_rules_old(self):
         # TODO научиться парсить старые платежи
+
         pass
 
 
