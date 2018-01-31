@@ -1,3 +1,5 @@
+import json
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -7,7 +9,6 @@ LIST_OF_TYPES = [
     "internet",
     "tv",
     "games",
-    "goods",
     "online",
     "fin",
     "chat",
@@ -26,11 +27,19 @@ class Payment(object):
         self.link = link
         try:
             self.rules = self.get_rules_new()
-        except AttributeError as e:
-            print("Nothing found for {}".format(self.name))
-            self.rules = []
+            print("downloaded: {}".format(self.name))
+        except:
+            try:
+                self.rules = self.get_rules_old()
+                print("downloaded: {}".format(self.name))
+            except:
+                print("Nothing found for {}".format(self.name))
+                self.rules = []
 
     def __str__(self):
+        return str(self.dict)
+
+    def __repr__(self):
         return str(self.dict)
 
     @property
@@ -52,9 +61,20 @@ class Payment(object):
         return all_rules
 
     def get_rules_old(self):
-        # TODO научиться парсить старые платежи
-
-        pass
+        payment_parameter_string = requests.get(self.link).text
+        payment_soup = BeautifulSoup(payment_parameter_string, "lxml")
+        find = payment_soup.find("table", {"class": "xforms"})
+        find_rules = find.find_all("tr")
+        all_rules = []
+        for rule in find_rules:
+            rule_label = rule.label
+            if rule.label is not None:
+                rule_label = rule.label.text
+            rule_instructions = rule.find("span", {"class": "xf_hint"})
+            if rule_instructions is not None:
+                rule_instructions = rule_instructions.text
+            all_rules.append(Rule(rule_label, rule_instructions))
+        return all_rules
 
 
 class Rule(object):
@@ -90,8 +110,19 @@ class PaymentsGetter(object):
             payments.append(payment)
         return payments
 
+    @staticmethod
+    def save_payments_to_file(filename, data):
+        with open(filename, "a") as save_file:
+            save_file.write(json.dumps(data, indent=4))
+
+
+def download_all_and_save():
+    getter = PaymentsGetter(link_for_all_payments_in_category)
+    all_data = []
+    for num in range(0, len(LIST_OF_TYPES)):
+        all_data.append(getter.get_payments_from_yandex(num))
+    getter.save_payments_to_file("yandex_dump.txt", all_data)
+
 
 if __name__ == '__main__':
-    paymentss = PaymentsGetter(link_for_all_payments_in_category).get_payments_from_yandex(1)
-    for pay in paymentss:
-        print(pay)
+    download_all_and_save()
